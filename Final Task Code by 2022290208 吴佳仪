@@ -36,7 +36,7 @@ Answer: Real / Fake
 Reason: ...
 """
 
-# BERT + GPT 协同判断 Prompt 模板
+# GPT-4.1 nano + BERT 协同判断 Prompt 模板
 def generate_bert_gpt_prompt(title, bert_result):
     return f"""You are an expert news analyst. The BERT model has preliminarily judged the following headline as {bert_result}.
 Now, based on your own reasoning and the information from BERT, make a final judgment.
@@ -48,7 +48,7 @@ Answer: Real / Fake
 Reason: ...
 """
 
-# BERT + GPT + 情感语义分析 Prompt 模板
+# GPT-4.1 nano + BERT + 情感语义分析 Prompt 模板
 def generate_bert_gpt_sentiment_prompt(title, bert_result, sentiment):
     return f"""You are an expert news analyst. The BERT model preliminarily marked this headline as {bert_result}.
 The sentiment analysis suggests the emotional tone is {sentiment}.
@@ -63,7 +63,7 @@ Answer: Real / Fake
 Reason: ...
 """
 
-# 四、使用 GPT 和情感分析优化真假新闻判断的完整代码
+# 四、使用 GPT-4.1 nano 和情感分析优化真假新闻判断的完整代码
 def generate_optimized_prompt(title, sentiment, bert_result=None):
     if bert_result:
         return generate_bert_gpt_sentiment_prompt(title, bert_result, sentiment)
@@ -391,4 +391,3 @@ for epoch in range(num_epochs):
     print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {train_loss:.4f}, Test Accuracy: {accuracy:.4f}")
 
 torch.save(model.state_dict(), "multimodal_model.pth")
-
