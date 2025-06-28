@@ -63,11 +63,58 @@ Answer: Real / Fake
 Reason: ...
 """
 
+# 四、使用 GPT 和情感分析优化真假新闻判断的完整代码
+def generate_optimized_prompt(title, sentiment, bert_result=None):
+    if bert_result:
+        return generate_bert_gpt_sentiment_prompt(title, bert_result, sentiment)
+    else:
+        return generate_combined_prompt(title, sentiment)
+
+# 五、情感分析与真假新闻判断优化
+# 定义一个处理新闻标题并判断情感的过程
+def analyze_sentiment_and_fact(title):
+    # 情感分析
+    sentiment = analyze_sentiment(title)  # 模拟情感分析返回结果 (Positive/Negative/Neutral)
+    
+    # 假设我们使用 BERT 进行真假新闻的初步判断
+    bert_result = bert_fact_check(title)  # 假设此函数返回 BERT 对新闻标题的初步判断
+    
+    # 使用优化的模板进行最终判断
+    return generate_optimized_prompt(title, sentiment, bert_result)
+
+# 模拟情感分析的函数
+def analyze_sentiment(title):
+    # 这里可以调用实际的情感分析模型
+    # 例如，假设这个模型返回新闻的情感
+    # 假设返回：'Positive', 'Negative', 'Neutral'
+    return 'Neutral'  # 示例返回值，实际可以根据模型输出
+
+# 模拟 BERT 模型进行初步的真假新闻判断
+def bert_fact_check(title):
+    # 这里可以调用实际的BERT模型进行初步的真假新闻判断
+    # 假设返回 'Real' 或 'Fake' 基于模型的推理
+    return 'Real'  # 示例返回值
+
+# 六、应用示例
+# 假设我们有一组新闻标题
+headlines = [
+    "NASA Launches New Mission to Mars",
+    "Celebrity Found Dead, Suicide Note Discovered",
+    "Community Organizes Charity for Homeless People",
+    "Breaking News: Cure for Cancer Found!"
+]
+
+# 对每个标题应用分析函数
+for headline in headlines:
+    print(f"Processing headline: {headline}")
+    result = analyze_sentiment_and_fact(headline)
+    print(f"Generated prompt for {headline}: {result}")
+    print("\n---\n")
+
+
 # ----------------------------
 # 基于大模型的Twitter主题分析
 # ----------------------------
-
-# 一、数据准备
 tweets = [
     "CDC Confirms New Breakthrough in Cancer Treatment",
     "Celebrity Found Dead in Apartment - Suicide Note Revealed",
@@ -81,7 +128,6 @@ tweets = [
     "Study Shows New Drug Can Cure Rare Disease"
 ]
 
-# 二、数据预处理
 import re
 import nltk
 from nltk.corpus import stopwords
@@ -101,42 +147,89 @@ def preprocess(text):
 
 processed_tweets = [preprocess(tweet) for tweet in tweets]
 
-# 三、模型构建与训练
 from gensim import corpora, models
 
 dictionary = corpora.Dictionary(processed_tweets)
 corpus = [dictionary.doc2bow(text) for text in processed_tweets]
+
 lda_model = models.LdaModel(corpus=corpus, id2word=dictionary, num_topics=3, passes=10)
 
-# 四、可视化分析
 import pyLDAvis
 import pyLDAvis.gensim_models
 
 pyLDAvis.enable_notebook()
 vis = pyLDAvis.gensim_models.prepare(lda_model, corpus, dictionary)
-# pyLDAvis.show(vis)  # 在Jupyter中使用
 
-# 2. 词云图
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 
 for t in range(3):
-    plt.figure()
+    plt.figure(figsize=(8, 6))
     plt.imshow(WordCloud().fit_words(dict(lda_model.show_topic(t, 10))))
     plt.axis("off")
     plt.title(f"Topic {t}")
     plt.show()
 
-# 3. 热力图
 import seaborn as sns
 import pandas as pd
 
 topic_dist = [lda_model.get_document_topics(doc, minimum_probability=0) for doc in corpus]
 topic_df = pd.DataFrame([[prob for _, prob in doc] for doc in topic_dist])
+
 sns.heatmap(topic_df, annot=True, cmap="YlGnBu")
 plt.title("Document-Topic Distribution")
 plt.xlabel("Topic")
 plt.ylabel("Document")
+plt.show()
+
+from textblob import TextBlob
+
+def sentiment_analysis(text):
+    blob = TextBlob(text)
+    polarity = blob.sentiment.polarity
+    if polarity > 0:
+        return "Positive"
+    elif polarity < 0:
+        return "Negative"
+    else:
+        return "Neutral"
+
+sentiments = [sentiment_analysis(tweet) for tweet in tweets]
+
+topic_with_sentiment = []
+for i, tweet in enumerate(tweets):
+    doc_topic_dist = lda_model.get_document_topics(corpus[i])
+    sentiment = sentiments[i]
+    tweet_topic_labels = [lda_model.print_topic(topic_id) for topic_id, _ in doc_topic_dist]
+    
+    tweet_analysis = {
+        'Tweet': tweet,
+        'Topics': tweet_topic_labels,
+        'Sentiment': sentiment
+    }
+    
+    topic_with_sentiment.append(tweet_analysis)
+
+for analysis in topic_with_sentiment:
+    print(f"Tweet: {analysis['Tweet']}")
+    print(f"Topics: {analysis['Topics']}")
+    print(f"Sentiment: {analysis['Sentiment']}")
+    print("\n---\n")
+
+topic_sentiment_dist = []
+
+for i, analysis in enumerate(topic_with_sentiment):
+    topic_sentiment_dist.append({
+        'Tweet': analysis['Tweet'],
+        'Sentiment': analysis['Sentiment'],
+        'Topic Distribution': [topic_prob for _, topic_prob in lda_model.get_document_topics(corpus[i])]
+    })
+
+topic_sentiment_df = pd.DataFrame(topic_sentiment_dist)
+sns.heatmap(topic_sentiment_df.drop('Tweet', axis=1), annot=True, cmap="coolwarm", xticklabels=range(1, 4), yticklabels=topic_sentiment_df['Sentiment'])
+plt.title("Topic Sentiment Distribution")
+plt.xlabel("Topic")
+plt.ylabel("Sentiment")
 plt.show()
 
 # ----------------------------
@@ -152,37 +245,35 @@ from torch.utils.data import DataLoader, Dataset
 import numpy as np
 from PIL import Image
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
 
-# 设置设备
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# 1. BERT文本特征提取器
 class BERTTextModel(nn.Module):
     def __init__(self, pretrained_model_name="bert-base-uncased"):
         super(BERTTextModel, self).__init__()
         self.bert = BertModel.from_pretrained(pretrained_model_name)
-        self.fc = nn.Linear(self.bert.config.hidden_size, 256)  # 投影到256维
+        self.fc = nn.Linear(self.bert.config.hidden_size, 256)
 
     def forward(self, input_ids, attention_mask):
         outputs = self.bert(input_ids, attention_mask=attention_mask)
-        hidden_states = outputs[1]  # [CLS]的输出
+        hidden_states = outputs[1]
         x = self.fc(hidden_states)
         return x
 
-# 2. 图像特征提取器（使用预训练的ResNet50）
 class ImageFeatureExtractor(nn.Module):
     def __init__(self):
         super(ImageFeatureExtractor, self).__init__()
-        self.resnet = models.resnet50(pretrained=True)  # 预训练ResNet50
-        self.resnet.fc = nn.Identity()  # 去掉最后的全连接层
-        self.fc = nn.Linear(2048, 256)  # 投影到256维
+        self.resnet = models.resnet50(pretrained=True)
+        self.resnet.fc = nn.Identity()
+        self.fc = nn.Linear(2048, 256)
 
     def forward(self, x):
         x = self.resnet(x)
         x = self.fc(x)
         return x
 
-# 3. 跨模态注意力机制
 class CrossModalAttention(nn.Module):
     def __init__(self, input_size=256):
         super(CrossModalAttention, self).__init__()
@@ -196,14 +287,13 @@ class CrossModalAttention(nn.Module):
         fused_features = text_weighted * text_features + image_weighted * image_features
         return fused_features
 
-# 4. 综合预测模型
 class MultiModalPredictor(nn.Module):
     def __init__(self):
         super(MultiModalPredictor, self).__init__()
         self.text_model = BERTTextModel()
         self.image_model = ImageFeatureExtractor()
         self.attn_module = CrossModalAttention()
-        self.fc = nn.Linear(256, 2)  # 2分类任务
+        self.fc = nn.Linear(256, 2)
 
     def forward(self, input_ids, attention_mask, image_tensor):
         text_features = self.text_model(input_ids, attention_mask)
@@ -214,7 +304,6 @@ class MultiModalPredictor(nn.Module):
         output = self.fc(fused_features)
         return output
 
-# 5. 数据加载（假设有文本和图像数据）
 class MultiModalDataset(Dataset):
     def __init__(self, texts, images, labels, tokenizer, transform=None):
         self.texts = texts
@@ -240,7 +329,25 @@ class MultiModalDataset(Dataset):
 
         return input_ids, attention_mask, image, label
 
-# 6. 模型训练与评估
+tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+texts = ["Example text 1", "Example text 2", "Example text 3"]
+images = ["path_to_image1.jpg", "path_to_image2.jpg", "path_to_image3.jpg"]
+labels = [0, 1, 0]
+
+train_texts, test_texts, train_images, test_images, train_labels, test_labels = train_test_split(texts, images, labels, test_size=0.2, random_state=42)
+
+train_dataset = MultiModalDataset(train_texts, train_images, train_labels, tokenizer, transform)
+test_dataset = MultiModalDataset(test_texts, test_images, test_labels, tokenizer, transform)
+
+train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
+
 def train_model(model, train_loader, criterion, optimizer):
     model.train()
     running_loss = 0.0
@@ -255,4 +362,33 @@ def train_model(model, train_loader, criterion, optimizer):
 
         running_loss += loss.item()
 
-    return
+    return running_loss / len(train_loader)
+
+def evaluate_model(model, test_loader):
+    model.eval()
+    all_preds = []
+    all_labels = []
+    with torch.no_grad():
+        for input_ids, attention_mask, image, labels in test_loader:
+            input_ids, attention_mask, image, labels = input_ids.to(device), attention_mask.to(device), image.to(device), labels.to(device)
+
+            outputs = model(input_ids, attention_mask, image)
+            _, preds = torch.max(outputs, dim=1)
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
+
+    accuracy = accuracy_score(all_labels, all_preds)
+    return accuracy
+
+model = MultiModalPredictor().to(device)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=1e-5)
+
+num_epochs = 10
+for epoch in range(num_epochs):
+    train_loss = train_model(model, train_loader, criterion, optimizer)
+    accuracy = evaluate_model(model, test_loader)
+    print(f"Epoch {epoch+1}/{num_epochs}, Train Loss: {train_loss:.4f}, Test Accuracy: {accuracy:.4f}")
+
+torch.save(model.state_dict(), "multimodal_model.pth")
+
